@@ -1,0 +1,40 @@
+# Installation media. ISOs are large, licensed to the person who downloaded
+# them, and do not belong in git.
+*.iso
+
+# VirtualBox disks, saved state, firmware state, and machine registrations.
+# VMs live in E:\VMs on the lab host, not in this repository.
+*.vdi
+*.vmdk
+*.vhd
+*.vhdx
+*.hdd
+*.vbox
+*.vbox-prev
+*.vbox.bak
+*.nvram
+*.sav
+
+# Logs and crash dumps
+*.log
+*.dmp
+
+# Credentials and local secrets. This lab prompts for passwords at runtime.
+# Do not check in exported accounts, answer files, or environment files.
+.env
+.env.*
+*.pem
+*.key
+*.pfx
+*.p12
+*.kdbx
+*credential*
+*secret*
+unattend.xml
+Autounattend.xml
+autounattend.xml
+
+# OS and editor clutter
+Thumbs.db
+Desktop.ini
+.DS_Store
