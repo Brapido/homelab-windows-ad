@@ -8,7 +8,7 @@
 .DESCRIPTION
     Run this on DC01 after the forest exists and the server has rebooted.
     VirtualBox has its own DHCP server for a NAT Network. That server must be
-    off before Windows DHCP is authorized. Two DHCP servers on LabNAT will
+    off before Windows DHCP is authorized. Two DHCP servers on LabNet will
     fight, and a Windows DHCP server attached to a Bridged adapter could offer
     addresses to the home network. This script refuses to run unless
     -IConfirmVirtualBoxDhcpIsOff is passed. The switch is a confirmation, not
@@ -25,7 +25,7 @@
     without recreating objects that already match.
 
 .PARAMETER IConfirmVirtualBoxDhcpIsOff
-    Required. Confirms that the LabNAT NAT Network has DHCP disabled in
+    Required. Confirms that the LabNet NAT Network has DHCP disabled in
     VirtualBox and that no VM adapter is Bridged.
 
 .PARAMETER ScopeId
@@ -177,7 +177,7 @@ function Set-LabDnsSupport {
 }
 
 if (-not $IConfirmVirtualBoxDhcpIsOff) {
-    throw 'Pass -IConfirmVirtualBoxDhcpIsOff after you disable DHCP on the LabNAT network and confirm no adapter is Bridged.'
+    throw 'Pass -IConfirmVirtualBoxDhcpIsOff after you disable DHCP on the LabNet network and confirm no adapter is Bridged.'
 }
 
 foreach ($address in @($ScopeId, $StartRange, $EndRange, $SubnetMask, $Gateway, $DnsServer, $ServerAddress)) {
@@ -339,7 +339,7 @@ if ($scope) {
     }
 }
 elseif ($PSCmdlet.ShouldProcess($ScopeId, "Create DHCP scope $StartRange-$EndRange")) {
-    Add-DhcpServerv4Scope -Name $ScopeName -StartRange $StartRange -EndRange $EndRange -SubnetMask $SubnetMask -State Active -LeaseDuration (New-TimeSpan -Days $LeaseDays) -Description 'Clients on LabNAT. Do not attach this server to a Bridged adapter.' | Out-Null
+    Add-DhcpServerv4Scope -Name $ScopeName -StartRange $StartRange -EndRange $EndRange -SubnetMask $SubnetMask -State Active -LeaseDuration (New-TimeSpan -Days $LeaseDays) -Description 'Clients on LabNet. Do not attach this server to a Bridged adapter.' | Out-Null
     Write-Host "Created scope $ScopeId ($StartRange-$EndRange)."
     $scopeReady = $true
 }

@@ -4,7 +4,7 @@
 
 The host is Windows 11 Home with 32 GB of RAM. Virtual machines will live in `E:\VMs`. The hypervisor is VirtualBox 7.2. Use 7.2.2 or a later 7.2 update. VirtualBox 7.2.0 had a bug where the emulated TPM was invisible to some guests; 7.2.2 fixed that. Windows 11 was less affected than other guests, and starting on 7.2.2 avoids the question.
 
-When this phase is actually finished, both guests will be installed, Guest Additions will be installed, each VM will have a powered-off baseline snapshot, and the only network attachment will be NAT Network `LabNAT`.
+When this phase is actually finished, both guests will be installed, Guest Additions will be installed, each VM will have a powered-off baseline snapshot, and the only network attachment will be NAT Network `LabNet`.
 
 Related pages: [README](../README.md), [Phase 2 domain controller](02-domain-controller.md).
 
@@ -56,65 +56,64 @@ VirtualBox has three attachments that people mix up:
 | Attachment | What it does | Use it here? |
 | --- | --- | --- |
 | NAT | Each VM is hidden behind its own NAT. Guests do not easily talk to each other. | No |
-| NAT Network | Guests share one virtual LAN, talk to each other, and reach the internet through NAT. The home LAN does not see them. | Yes. Name it `LabNAT` |
+| NAT Network | Guests share one virtual LAN, talk to each other, and reach the internet through NAT. The home LAN does not see them. | Yes. Name it `LabNet` |
 | Bridged | The VM sits on the home LAN and can see household devices. A DHCP server in the VM can offer addresses to the house. | No. Not on any adapter |
 
 Official description of the NAT Network service: [VirtualBox 7.2 networking](https://docs.oracle.com/en/virtualization/virtualbox/7.2/user/networkingdetails.html).
 
-### In Network Manager
+### In the VirtualBox 7.2 window
+
+In VirtualBox 7.2 the NAT Networks list is the Network page in the main window. It is not under File > Tools > Network Manager.
 
 1. Shut the guests down if any exist. Do not edit the host network from a saved state.
-2. Open Network Manager: File > Tools > Network Manager. On a layout where that menu is collapsed, open Tools in the VirtualBox Manager sidebar and choose Network.
+2. Open the Network page in the main VirtualBox window.
 3. Select NAT Networks and create a network.
-4. Name: `LabNAT`.
+4. Name: `LabNet`.
 5. IPv4 prefix: `10.0.10.0/24`.
 6. Enable the network.
-7. Leave DHCP enabled for now. The operating-system installers need an address so Windows Update can run. You will turn this off at the start of Phase 2, before Windows Server becomes a DHCP server.
-8. Disable IPv6 on this NAT Network. The guests can keep IPv6 enabled inside Windows. The lab DNS design is IPv4, and an IPv6 resolver from the NAT engine would be a second path around DC01.
+7. Leave DHCP disabled. VirtualBox must not answer DHCP on this network. DC01 is the only DHCP server, and it is not installed yet. Guests get no address until a static address is set. That is expected.
+8. Disable IPv6 on this NAT Network if the page offers it. The guests can keep IPv6 enabled inside Windows. The lab DNS design is IPv4, and an IPv6 resolver from the NAT engine would be a second path around DC01.
 9. Do not add a port-forward rule. Nothing in this lab needs a service published on the host.
 
-VirtualBox uses the first address of that prefix as the NAT gateway. For `10.0.10.0/24` that is `10.0.10.1`. The manual notes that the gateway address can differ. Read it before you set the static IP in Phase 2. In Network Manager, or from a command prompt:
+### Command line
+
+The network was created with DHCP already off:
+
+```text
+VBoxManage natnetwork add --netname LabNet --network "10.0.10.0/24" --enable --dhcp off
+```
+
+Do not run `add` again if `LabNet` already exists. Confirm the result with:
 
 ```text
 VBoxManage list natnetworks
 ```
 
-If the gateway is not `10.0.10.1`, use the address you see as `-DefaultGateway` in `scripts/01-Set-ServerBasics.ps1` and as the DHCP router option in `scripts/03-Configure-DHCP.ps1`. Do not guess.
-
-The same settings as a command, if you would rather check the GUI result or recreate the network:
-
-```text
-VBoxManage natnetwork add --netname LabNAT --network 10.0.10.0/24 --enable --dhcp on --ipv6 off
-VBoxManage list natnetworks
-```
-
-Do not run `add` if `LabNAT` already exists. To turn DHCP off later:
-
-```text
-VBoxManage natnetwork modify --netname LabNAT --dhcp off
-```
+VirtualBox uses the first address of that prefix as the NAT gateway. For `10.0.10.0/24` that is `10.0.10.1`. The manual notes that the gateway address can differ. Read it before you set the static IP in Phase 2. If the gateway is not `10.0.10.1`, use the address you see as `-DefaultGateway` in `scripts/01-Set-ServerBasics.ps1` and as the DHCP router option in `scripts/03-Configure-DHCP.ps1`. Do not guess.
 
 > TODO: add screenshot
 >
 > `docs/screenshots/nat-network.png`
 >
-> `LabNAT` with prefix `10.0.10.0/24`. Take it again after DHCP is disabled and say which state the image shows.
+> The Network page showing `LabNet`, prefix `10.0.10.0/24`, DHCP disabled.
 
 ## Why Bridged is out
 
-A Bridged adapter joins the home network. Broadcasts from the VM, including DHCP offers, reach whatever else is on that network. This lab's DHCP scope is for CLIENT01, not for phones, TVs, or anyone else's PC. NAT Network keeps those broadcasts inside `LabNAT` and still allows outbound internet.
+A Bridged adapter joins the home network. Broadcasts from the VM, including DHCP offers, reach whatever else is on that network. This lab's DHCP scope is for CLIENT01, not for phones, TVs, or anyone else's PC. NAT Network keeps those broadcasts inside `LabNet` and still allows outbound internet.
 
-After both VMs exist, open each VM's network settings and read the attachment. It must say NAT Network, and the name must be `LabNAT`. If it says Bridged Adapter, change it before you start the guest. Power the guest off before changing the attachment. Discard a saved state rather than changing the NIC underneath it.
+After both VMs exist, open each VM's network settings and read the attachment. It must say NAT Network, and the name must be `LabNet`. If it says Bridged Adapter, change it before you start the guest. Power the guest off before changing the attachment. Discard a saved state rather than changing the NIC underneath it.
 
 ## Create DC01
 
-Skip unattended install. VirtualBox unattended setup asks for a password and can store it in the VM configuration. You will set the Administrator password yourself at the Windows console, and you will not put it in this repository or in a screenshot.
+Uncheck **Proceed with Unattended Installation**. Unattended setup asks for a password and can store it in the VM configuration. You will set the Administrator password yourself at the Windows console, and you will not put it in this repository or in a screenshot.
+
+Unchecking that box locks the OS Edition field in the VirtualBox wizard. You cannot pick Desktop Experience there. Choose Windows Server 2022 Standard Evaluation (Desktop Experience) in the Windows installer, on the edition screen. The line without Desktop Experience is Server Core.
 
 1. Machine > New.
 2. Name: `DC01`.
 3. Folder: `E:\VMs`.
 4. ISO: the Server 2022 evaluation ISO.
-5. Type: Microsoft Windows. Version: Windows 2022 (64-bit). If the wizard offers to skip unattended install, skip it. If a username or password field is visible, you are on the unattended path. Go back and turn that off.
+5. Type: Microsoft Windows. Version: Windows 2022 (64-bit). Uncheck Proceed with Unattended Installation. The OS Edition field locks; leave it. If a username or password field is still visible, unattended install is still on. Go back and clear it.
 6. Base memory: 4096 MB. Processors: 2.
 7. Hard disk: Create a virtual hard disk now. VDI, dynamically allocated, 60 GB.
 8. Finish, then open Settings before the first boot and confirm:
@@ -124,7 +123,7 @@ Skip unattended install. VirtualBox unattended setup asks for a password and can
 | System > Motherboard | EFI off. TPM off. Secure Boot off. Server 2022 does not need them for this lab. |
 | System > Processor | 2 CPUs. |
 | Display | Default is fine. |
-| Network > Adapter 1 | Enable. Attached to: NAT Network. Name: `LabNAT`. |
+| Network > Adapter 1 | Enable. Attached to: NAT Network. Name: `LabNet`. |
 | Network > Adapter 2 | Disabled. |
 | Audio, USB | Disabled is fine. |
 
@@ -132,7 +131,7 @@ Skip unattended install. VirtualBox unattended setup asks for a password and can
 >
 > `docs/screenshots/dc01-network.png`
 >
-> Adapter 1 attached to NAT Network `LabNAT`.
+> Adapter 1 attached to NAT Network `LabNet`.
 
 ## Create CLIENT01
 
@@ -143,7 +142,7 @@ Windows 11 will refuse to install without EFI, TPM 2.0, Secure Boot, 2 CPUs, and
 3. Folder: `E:\VMs`.
 4. ISO: the Windows 11 Enterprise evaluation ISO.
 5. Type: Microsoft Windows. Version: Windows 11 (64-bit).
-6. Skip unattended install, for the same reason as DC01.
+6. Uncheck Proceed with Unattended Installation, for the same reason as DC01. The OS Edition field locks. Windows 11 Enterprise is selected in the Windows installer if the ISO offers more than one edition.
 7. Base memory: 4096 MB. Processors: 2.
 8. Hard disk: VDI, dynamically allocated, 64 GB.
 9. Finish, then Settings:
@@ -153,7 +152,7 @@ Windows 11 will refuse to install without EFI, TPM 2.0, Secure Boot, 2 CPUs, and
 | System > Motherboard | Enable EFI. TPM: 2.0. Enable Secure Boot. If Reset keys to default is available, use it so the VM has the current default Secure Boot certificates. |
 | System > Processor | 2 CPUs. |
 | Display | Video memory 128 MB. Graphics controller: VBoxSVGA. |
-| Network > Adapter 1 | Enable. Attached to: NAT Network. Name: `LabNAT`. |
+| Network > Adapter 1 | Enable. Attached to: NAT Network. Name: `LabNet`. |
 | Network > Adapter 2 | Disabled. |
 
 Do not clear the TPM after Windows is installed unless you are throwing the VM away and starting over. Secure Boot keys live in the VM's NVRAM. TPM state is separate.
@@ -168,15 +167,15 @@ The lab plan does not bypass the Windows 11 hardware checks. If setup says this 
 
 ## Install the operating systems
 
-VirtualBox DHCP on `LabNAT` is still enabled during this section so each guest can reach Windows Update. You turn it off in Phase 2.
+`LabNet` is created with VirtualBox DHCP off, so neither guest receives an address during setup. Server setup does not need one. Set the static address after Windows is installed. Windows Update on DC01 waits until that address exists and, after promotion, until DNS forwarders exist.
 
 Boot order should try the optical drive before the hard disk for the first start. The wizard usually attaches the ISO. If the VM boots to a blank disk, open Settings > Storage and attach the ISO to the optical drive, then start again.
 
 ### DC01
 
-Follow [02-domain-controller.md](02-domain-controller.md) from the Server 2022 setup screens through the first sign-in. The short version: Windows Server 2022 Standard Evaluation (Desktop Experience), custom install onto the 60 GB disk, Administrator password typed at the console and not recorded here.
+Follow [02-domain-controller.md](02-domain-controller.md) from the Server 2022 setup screens through the first sign-in. The short version: on the Windows edition screen, choose Windows Server 2022 Standard Evaluation (Desktop Experience), then a custom install onto the 60 GB disk. The Administrator password is typed at the console and is not recorded here.
 
-Do not pick the option without "Desktop Experience". That install is Server Core. The rest of this lab uses Server Manager and the management consoles.
+The VirtualBox wizard will not show that edition. Unchecking Proceed with Unattended Installation locks the OS Edition field. Do not pick the installer line without "Desktop Experience". That install is Server Core. The rest of this lab uses Server Manager and the management consoles.
 
 ### CLIENT01
 
@@ -186,7 +185,7 @@ Do not pick the option without "Desktop Experience". That install is Server Core
 4. Custom install. Select the unallocated 64 GB disk. Next.
 5. After the reboot, the out-of-box experience varies by Windows 11 build. The end state you want is a local administrator account, the computer named `CLIENT01`, not joined to any domain, and not signed in with a Microsoft account or a work Azure AD tenant. Domain join is Phase 3, and it joins `lab.local`, not a cloud tenant.
 6. If you see a local-account or "domain join instead" path, use the local account.
-7. If setup insists on a network account, shut down, set Adapter 1 to Not attached, start again, and take the offline local-account path. When the desktop is up, shut down and set Adapter 1 back to NAT Network `LabNAT`.
+7. If setup insists on a network account, shut down, set Adapter 1 to Not attached, start again, and take the offline local-account path. When the desktop is up, shut down and set Adapter 1 back to NAT Network `LabNet`.
 8. If the name was not set during setup, rename the PC to `CLIENT01` in Settings > System > About, or with `Rename-Computer -NewName CLIENT01 -Restart` from an elevated PowerShell.
 
 Four gigabytes is the Windows 11 minimum. The desktop will feel tight. That matches the spec in the README.
@@ -240,8 +239,8 @@ Run these on the host and in the guests when you build this. They are the checks
 
 - VirtualBox Help > About shows 7.2.2 or a later 7.2 build.
 - Both VM folders are under `E:\VMs`.
-- `VBoxManage list natnetworks` shows `LabNAT` and `10.0.10.0/24`.
-- Each VM has one enabled adapter, attached to NAT Network `LabNAT`.
+- `VBoxManage list natnetworks` shows `LabNet` and `10.0.10.0/24`.
+- Each VM has one enabled adapter, attached to NAT Network `LabNet`.
 - CLIENT01 settings show EFI, TPM 2.0, and Secure Boot.
 - DC01 is Server 2022 with a desktop, not Server Core.
 - CLIENT01 is named `CLIENT01` and is not domain-joined.
@@ -266,10 +265,10 @@ What you want, once the settings are right: `Get-Tpm` reports a TPM that is pres
 
 **Windows 11 says the PC can't run Windows 11.** The VM is powered off, EFI is on, TPM is 2.0, Secure Boot is on, processors are 2, and RAM is 4096 MB. OS type is Windows 11 (64-bit). You are on VirtualBox 7.2.2 or later. Reset Secure Boot keys to default if the button is there, then start the install again.
 
-**The guest has no network during setup.** Adapter 1 is enabled and attached to `LabNAT`, and the NAT Network DHCP server is still enabled. A cable-unplugged icon means the adapter is disabled or the NAT Network is disabled.
+**The guest has no address during setup.** That is expected. `LabNet` was created with `--dhcp off`, so VirtualBox does not hand out an address. A cable-unplugged icon is different: Adapter 1 is disabled, or the NAT Network itself is disabled. Attach Adapter 1 to `LabNet` and set the static address after setup.
 
 **Guest Additions ISO is missing.** Mount `C:\Program Files\Oracle\VirtualBox\VBoxGuestAdditions.iso` from Devices > Optical Drives.
 
-**You accidentally chose Bridged.** Power off. Settings > Network > Adapter 1 > NAT Network > `LabNAT`. If this happens after Windows DHCP is installed, do not start that guest while it is bridged. Unauthorize DHCP first. Phase 2 has that warning again. It should not come up if Bridged is never selected.
+**You accidentally chose Bridged.** Power off. Settings > Network > Adapter 1 > NAT Network > `LabNet`. If this happens after Windows DHCP is installed, do not start that guest while it is bridged. Unauthorize DHCP first. Phase 2 has that warning again. It should not come up if Bridged is never selected.
 
 **E: is not where the disk landed.** VirtualBox Manager shows the VM location under the VM details. Moving a VM is Machine > Move, with the VM powered off. Do not copy a `.vdi` by hand while a snapshot exists.

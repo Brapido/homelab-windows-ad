@@ -33,7 +33,8 @@
 
 .PARAMETER DefaultGateway
     IPv4 gateway. Default is 10.0.10.1, the VirtualBox NAT gateway for
-    10.0.10.0/24. Confirm that address in Network Manager before relying on it.
+    10.0.10.0/24. Confirm that address on the VirtualBox Network page, or with
+    VBoxManage list natnetworks, before relying on it.
 
 .PARAMETER DnsServer
     One or more IPv4 DNS servers. Default is 10.0.10.10. The list must include
@@ -117,14 +118,14 @@ function Get-LabAdapter {
             throw "No network adapter named '$Name' was found."
         }
         if ($adapter.Status -ne 'Up') {
-            throw "Adapter '$Name' is $($adapter.Status). Attach it to the LabNAT network and try again."
+            throw "Adapter '$Name' is $($adapter.Status). Attach it to the LabNet network and try again."
         }
         return $adapter
     }
 
     $connected = @(Get-NetAdapter | Where-Object { $_.Status -eq 'Up' })
     if ($connected.Count -eq 0) {
-        throw 'No connected network adapter was found. Attach the VM to the LabNAT network and try again.'
+        throw 'No connected network adapter was found. Attach the VM to the LabNet network and try again.'
     }
     if ($connected.Count -gt 1) {
         $names = ($connected | ForEach-Object { $_.Name }) -join ', '

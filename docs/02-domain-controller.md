@@ -2,21 +2,21 @@
 
 > **Status: not done.** This is the runbook for DC01. The forest has not been created. The commands in the checks section are what to run later. They are not output from a promotion that already happened.
 
-DC01 becomes the first domain controller of a new forest, `lab.local`, and it hosts DNS and DHCP for `LabNAT`. The repeatable work is in `scripts/`. The Server Manager clicks are described so the same choices are recognizable. Promote the server once. If you use the wizard, do not also run the promotion half of `02-Install-ADDSForest.ps1`. A second run of that script, after the server is already a domain controller for `lab.local`, only checks DNS forwarders and the reverse zone.
+DC01 becomes the first domain controller of a new forest, `lab.local`, and it hosts DNS and DHCP for `LabNet`. The repeatable work is in `scripts/`. The Server Manager clicks are described so the same choices are recognizable. Promote the server once. If you use the wizard, do not also run the promotion half of `02-Install-ADDSForest.ps1`. A second run of that script, after the server is already a domain controller for `lab.local`, only checks DNS forwarders and the reverse zone.
 
 Related pages: [README](../README.md), [Phase 1 VirtualBox](01-virtualbox-setup.md).
 
 ## Before you start
 
-Phase 1 is finished: DC01 is Windows Server 2022 with the desktop, Guest Additions are installed, the adapter is NAT Network `LabNAT`, and a powered-off snapshot `01-os-installed` exists. VirtualBox DHCP on `LabNAT` is still **on** at the start of this page, because you need internet once more. It goes off before Windows DHCP.
+Phase 1 is finished: DC01 is Windows Server 2022 with the desktop, Guest Additions are installed, the adapter is NAT Network `LabNet`, and a powered-off snapshot `01-os-installed` exists. VirtualBox DHCP on `LabNet` is **off**. It was created that way (`--dhcp off`) so it never answers beside the Windows DHCP server.
 
 You will need:
 
 - The Administrator password you typed at Windows setup. It is not in this repository.
 - A second password you will invent for Directory Services Restore Mode. It is not the sign-in password. You will type it when the script or the wizard asks. You will not store it in git, in the VM notes, or in a screenshot.
-- This repository copied onto DC01. Do that while the guest still has working internet. After the static DNS server is set to DC01 itself, outside names do not resolve until the forwarders exist.
+- This repository copied onto DC01. `LabNet` does not hand out an address, so the guest has no network until you set one. Copy the files in with a shared folder or a zip, or set the static address below and clone after DNS forwarders exist. After the adapter DNS server is DC01 itself, outside names do not resolve until the forwarders exist.
 
-From the guest, with VirtualBox DHCP still handing out an address:
+If the guest already has a working address and can resolve outside names, clone from the guest:
 
 ```powershell
 git clone <the-url-of-this-repository>
@@ -36,7 +36,7 @@ Do this from the VirtualBox window on the first boot, if Phase 1 did not already
 2. Language, time format, and keyboard. Next.
 3. Install now.
 4. "I don't have a product key".
-5. Select **Windows Server 2022 Standard Evaluation (Desktop Experience)**. Read both lines. The line without Desktop Experience is Server Core.
+5. Select **Windows Server 2022 Standard Evaluation (Desktop Experience)**. Read both lines. The line without Desktop Experience is Server Core. The VirtualBox wizard cannot make this choice: unchecking Proceed with Unattended Installation locks the OS Edition field, so the edition is chosen here.
 6. Accept the license.
 7. Custom: Install Windows only.
 8. Select the unallocated 60 GB disk. Next.
@@ -57,20 +57,23 @@ Then:
 3. Install Guest Additions if you did not in Phase 1. Reboot.
 4. Shut down. Take snapshot `01-os-installed` if you did not already.
 
-## Copy the repo, then turn VirtualBox DHCP off
+## Confirm VirtualBox DHCP is off, then copy the repo
 
-1. Start DC01 and confirm it has an address from VirtualBox, not a `169.254` address. `ipconfig` is enough.
-2. Clone or copy this repository onto the guest, for example `C:\homelab`.
-3. Shut DC01 down.
-4. On the host, open Network Manager, edit `LabNAT`, and clear Supports DHCP / Enable DHCP. Or:
+`LabNet` is created with DHCP disabled. Confirm that before Windows DHCP is installed. On the host, open the Network page in the main VirtualBox window, or run:
 
 ```text
-VBoxManage natnetwork modify --netname LabNAT --dhcp off
 VBoxManage list natnetworks
 ```
 
-5. Read `VBoxManage list natnetworks` and write down the gateway if it is not `10.0.10.1`.
-6. Start DC01. It will not get a DHCP address now. That is the point. The next script sets `10.0.10.10`.
+DHCP for `LabNet` should be off. If it is on, turn it off from that Network page, or:
+
+```text
+VBoxManage natnetwork modify --netname LabNet --dhcp off
+```
+
+Read the gateway in that listing and write it down if it is not `10.0.10.1`.
+
+The guest will not get an address from VirtualBox. Copy this repository onto DC01 with a shared folder or a zip, for example to `C:\homelab`, before you depend on `git` inside the guest. The next script sets `10.0.10.10`.
 
 From here on, do the work from the VirtualBox console. If you change the IP of an adapter you are remoted in on, that session drops.
 
@@ -235,7 +238,7 @@ Shut down and take snapshot `03-domain-controller` when those checks look right.
 
 ## DHCP
 
-Two DHCP servers on `LabNAT` will both answer. Confirm VirtualBox DHCP is still off, then run the Windows DHCP script. The switch is your confirmation. The guest cannot see the host's VirtualBox setting.
+Two DHCP servers on `LabNet` will both answer. Confirm VirtualBox DHCP is still off, then run the Windows DHCP script. The switch is your confirmation. The guest cannot see the host's VirtualBox setting.
 
 ```powershell
 .\scripts\03-Configure-DHCP.ps1 -WhatIf -IConfirmVirtualBoxDhcpIsOff
@@ -336,7 +339,7 @@ Shut down DC01 and take snapshot `04-ou-and-users`.
 
 **Outside names fail, domain names work.** Forwarders are missing or the NAT gateway is wrong. `Get-DnsServerForwarder` and `Get-NetRoute -DestinationPrefix 0.0.0.0/0`. Fix the forwarders. Do not add a public DNS server to the NIC.
 
-**DHCP shows a red mark, or clients later get `169.254` addresses.** The server is not authorized, the scope is not active, or the service is stopped. `Get-DhcpServerInDC` and `Get-Service DHCPServer`. Also confirm VirtualBox DHCP is off and the adapter is still `LabNAT`. In the DHCP console, the server bindings should include `10.0.10.10` (the server node, Add/Remove Bindings).
+**DHCP shows a red mark, or clients later get `169.254` addresses.** The server is not authorized, the scope is not active, or the service is stopped. `Get-DhcpServerInDC` and `Get-Service DHCPServer`. Also confirm VirtualBox DHCP is off and the adapter is still `LabNet`. In the DHCP console, the server bindings should include `10.0.10.10` (the server node, Add/Remove Bindings).
 
 **Both VirtualBox and Windows are offering addresses.** Turn VirtualBox DHCP off, release and renew the client later, and confirm only DC01 is authorized. Do not fix this by switching the VM to Bridged.
 

@@ -41,7 +41,7 @@ Windows 11 Home, the host, cannot join an Active Directory domain. CLIENT01 is W
 ```mermaid
 flowchart LR
   subgraph host [Windows 11 Home host]
-    subgraph labnat [LabNAT 10.0.10.0/24]
+    subgraph labnet [LabNet 10.0.10.0/24]
       dc01[DC01 Server 2022]
       client01[CLIENT01 Windows 11 Enterprise]
     end
@@ -54,7 +54,7 @@ flowchart LR
   dc01 --- gateway
   client01 --- gateway
   gateway --> internet
-  homelan -.->|no Bridged adapter| labnat
+  homelan -.->|no Bridged adapter| labnet
 ```
 
 DC01 is `10.0.10.10`. CLIENT01 is planned to take a DHCP address from `10.0.10.100` through `10.0.10.200`. The gateway `10.0.10.1` is the VirtualBox NAT engine, not a virtual machine. Internet access is outbound only, for Windows Update and evaluation activation. The home LAN is not attached.
@@ -63,14 +63,14 @@ DC01 is `10.0.10.10`. CLIENT01 is planned to take a DHCP address from `10.0.10.1
 >
 > `docs/screenshots/topology-nat-network.png`
 >
-> Network Manager showing LabNAT at `10.0.10.0/24`, with DHCP off, after the steady state is reached. No adapter in this lab uses Bridged mode.
+> The Network page in the VirtualBox 7.2 main window showing LabNet at `10.0.10.0/24`, with DHCP off. No adapter in this lab uses Bridged mode.
 
 ## Virtual machine specifications
 
 | VM | Operating system | vCPU | RAM | Disk | Network |
 | --- | --- | --- | --- | --- | --- |
-| DC01 | Windows Server 2022 Evaluation, Desktop Experience | 2 | 4 GB | 60 GB dynamic VDI | NAT Network `LabNAT` only |
-| CLIENT01 | Windows 11 Enterprise Evaluation | 2 | 4 GB | 64 GB dynamic VDI | NAT Network `LabNAT` only |
+| DC01 | Windows Server 2022 Evaluation, Desktop Experience | 2 | 4 GB | 60 GB dynamic VDI | NAT Network `LabNet` only |
+| CLIENT01 | Windows 11 Enterprise Evaluation | 2 | 4 GB | 64 GB dynamic VDI | NAT Network `LabNet` only |
 
 Both disks are planned as dynamically allocated VDI files under `E:\VMs`. Dynamic disks start small and grow as the guest writes data. Snapshots add more files on `E:` over time.
 
@@ -82,10 +82,10 @@ DC01 does not need a virtual TPM. CLIENT01 does: EFI, TPM 2.0, and Secure Boot, 
 
 | Item | Value |
 | --- | --- |
-| NAT Network name | `LabNAT` |
+| NAT Network name | `LabNet` |
 | IPv4 network | `10.0.10.0/24` |
 | Subnet mask | `255.255.255.0` |
-| NAT gateway | `10.0.10.1` (confirm in Network Manager; this is the VirtualBox default for this prefix) |
+| NAT gateway | `10.0.10.1` (confirm on the Network page or with `VBoxManage list natnetworks`; this is the VirtualBox default for this prefix) |
 | DC01 address | `10.0.10.10` static |
 | DC01 DNS | `10.0.10.10` only |
 | Reserved for static servers | `10.0.10.11`–`10.0.10.99` |
@@ -187,7 +187,7 @@ ISOs, virtual disks, and `.vbox` files are gitignored. They belong in `E:\VMs` o
 
 ### Phase 1 — VirtualBox and base VMs
 
-Not started. [docs/01-virtualbox-setup.md](docs/01-virtualbox-setup.md) is the runbook: install VirtualBox 7.2, store machines in `E:\VMs`, create `LabNAT`, create both VMs, install the operating systems, install Guest Additions, and take a powered-off baseline snapshot.
+Not started. [docs/01-virtualbox-setup.md](docs/01-virtualbox-setup.md) is the runbook: install VirtualBox 7.2, store machines in `E:\VMs`, create `LabNet`, create both VMs, install the operating systems, install Guest Additions, and take a powered-off baseline snapshot.
 
 ### Phase 2 — Domain controller
 
@@ -218,7 +218,7 @@ Checked items would mean I did the work and can point at a screenshot or a comma
 - [ ] Install VirtualBox 7.2.2 or a later 7.2 update on the Windows 11 Home host
 - [ ] Set the default machine folder to `E:\VMs`
 - [ ] Download the Windows Server 2022 Evaluation ISO and the Windows 11 Enterprise Evaluation ISO from Microsoft
-- [ ] Create NAT Network `LabNAT` at `10.0.10.0/24`
+- [ ] Create NAT Network `LabNet` at `10.0.10.0/24`
 - [ ] Confirm the NAT gateway address, expected to be `10.0.10.1`
 - [ ] Confirm no virtual machine adapter is attached to a Bridged adapter
 - [ ] Create DC01 with 2 vCPU, 4 GB RAM, and a 60 GB dynamic disk
@@ -234,7 +234,7 @@ Checked items would mean I did the work and can point at a screenshot or a comma
 ### Phase 2
 
 - [ ] Copy or clone this repository onto DC01 while that guest still has internet
-- [ ] Turn off the VirtualBox DHCP server on `LabNAT`
+- [ ] Confirm the VirtualBox DHCP server on `LabNet` is off (the network is created with `--dhcp off`)
 - [ ] Rename the server to DC01
 - [ ] Set DC01 to `10.0.10.10/24`, gateway `10.0.10.1`, DNS `10.0.10.10`
 - [ ] Reboot and confirm the active computer name and the static address
@@ -292,8 +292,8 @@ The image files do not exist yet. When a phase is done, the image goes in `docs/
 | --- | --- |
 | `docs/screenshots/vbox-version.png` | VirtualBox 7.2.x About dialog on the Windows 11 Home host |
 | `docs/screenshots/machine-folder.png` | Default machine folder set to `E:\VMs` |
-| `docs/screenshots/nat-network.png` | `LabNAT`, prefix `10.0.10.0/24`, DHCP disabled |
-| `docs/screenshots/dc01-network.png` | DC01 adapter attached to NAT Network `LabNAT`, not Bridged |
+| `docs/screenshots/nat-network.png` | Network page showing `LabNet`, prefix `10.0.10.0/24`, DHCP disabled |
+| `docs/screenshots/dc01-network.png` | DC01 adapter attached to NAT Network `LabNet`, not Bridged |
 | `docs/screenshots/client01-firmware.png` | CLIENT01 with EFI, TPM 2.0, and Secure Boot enabled |
 | `docs/screenshots/guest-additions.png` | Guest Additions installed in one guest |
 | `docs/screenshots/snapshots-baseline.png` | Powered-off baseline snapshot for each VM |
@@ -308,7 +308,7 @@ The image files do not exist yet. When a phase is done, the image goes in `docs/
 ## Safety and scope
 
 - The lab network is a VirtualBox NAT Network. Bridged mode is out of scope for every adapter in this lab.
-- Windows DHCP is not authorized until the VirtualBox DHCP server on `LabNAT` is off.
+- Windows DHCP is not authorized until the VirtualBox DHCP server on `LabNet` is off.
 - Evaluation media comes from Microsoft. I will not put a product key in this repository.
 - Passwords are typed when a script asks for them. They are not parameters, and they are not written into the CSV.
 - No patient, customer, student, or coworker data belongs in this lab.
